@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Demo – El Carro Utiel (Web Call)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+             display:grid; place-items:center; min-height:100dvh; margin:0; }
+      button { padding:12px 18px; font-size:16px; border-radius:10px; cursor:pointer; }
+      #status { margin-top: 10px; opacity:.8 }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Demo – Agente de Voz (Web Call)</h1>
+      <button id="call">Iniciar prueba</button>
+      <div id="status"></div>
+    </main>
+
+    <script type="module">
+      import { RetellWebClient } from "https://cdn.jsdelivr.net/npm/retell-client-js-sdk/+esm";
+      const client = new RetellWebClient();
+      const btn = document.getElementById("call");
+      const statusEl = document.getElementById("status");
+
+      async function createToken() {
+        const r = await fetch("/api/create-web-call", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            // Si pones un token público en Vercel, descomenta:
+            // "x-test-token": "<TU_PUBLIC_TEST_TOKEN>"
+          },
+          body: JSON.stringify({})
+        });
+        if (!r.ok) throw new Error((await r.json()).error || r.statusText);
+        return r.json(); // { access_token, call_id }
+      }
+
+      document.getElementById("call").onclick = async () => {
+        btn.disabled = true;
+        statusEl.textContent = "Creando sesión...";
+        try {
+          const { access_token } = await createToken();
+          statusEl.textContent = "Conectando… autoriza micrófono si te lo pide.";
+          await client.startCall({ accessToken: access_token });
+          statusEl.textContent = "En llamada. Habla al micrófono.";
+        } catch (e) {
+          statusEl.textContent = "Error: " + e.message;
+          btn.disabled = false;
+        }
+      };
+    </script>
+  </body>
+</html>

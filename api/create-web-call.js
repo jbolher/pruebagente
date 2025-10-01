@@ -1,5 +1,3 @@
-export const config = { runtime: "nodejs18.x" };
-
 function json(res, status, obj) {
   res.status(status);
   res.setHeader("Content-Type", "application/json; charset=utf-8");

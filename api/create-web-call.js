@@ -19,17 +19,15 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "GET") {
-    // Sanity check desde el navegador: /api/create-web-call?token=...
     return json(res, 200, { ok: true, msg: "Use POST to create web call", agent_id_present: !!agent_id });
   }
-
   if (req.method !== "POST") {
     res.setHeader("Allow", "GET, POST");
     return json(res, 405, { error: "Method Not Allowed" });
   }
 
   try {
-    // API v2 (2025). Si tu cuenta aún usa v1, cambia el path a /create-web-call
+    // API v2 en 2025
     const r = await fetch("https://api.retellai.com/v2/create-web-call", {
       method: "POST",
       headers: {
@@ -51,4 +49,3 @@ export default async function handler(req, res) {
     return json(res, 500, { error: e.message || String(e) });
   }
 }
-

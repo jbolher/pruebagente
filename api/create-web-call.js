@@ -1,24 +1,41 @@
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).end("Method Not Allowed");
-  }
+export const config = { runtime: "nodejs18.x" };
 
-  // Protección sencilla opcional: exige un token público si lo configuras
+function json(res, status, obj) {
+  res.status(status);
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(obj));
+}
+
+export default async function handler(req, res) {
+  const agent_id = process.env.RETELL_AGENT_ID;
+  const apiKey   = process.env.RETELL_API_KEY;
+
+  if (!apiKey) return json(res, 500, { error: "Missing RETELL_API_KEY" });
+  if (!agent_id) return json(res, 500, { error: "Missing RETELL_AGENT_ID" });
+
+  // Protección opcional con token público
   const required = process.env.PUBLIC_TEST_TOKEN;
   const provided = req.headers["x-test-token"] || req.query.token;
   if (required && required !== provided) {
-    return res.status(403).json({ error: "Forbidden" });
+    return json(res, 403, { error: "Forbidden" });
   }
 
-  const agent_id = process.env.RETELL_AGENT_ID;
-  if (!agent_id) return res.status(400).json({ error: "Missing RETELL_AGENT_ID" });
+  if (req.method === "GET") {
+    // Sanity check desde el navegador: /api/create-web-call?token=...
+    return json(res, 200, { ok: true, msg: "Use POST to create web call", agent_id_present: !!agent_id });
+  }
+
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "GET, POST");
+    return json(res, 405, { error: "Method Not Allowed" });
+  }
 
   try {
-    const r = await fetch("https://api.retellai.com/create-web-call", {
+    // API v2 (2025). Si tu cuenta aún usa v1, cambia el path a /create-web-call
+    const r = await fetch("https://api.retellai.com/v2/create-web-call", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.RETELL_API_KEY}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -27,14 +44,13 @@ export default async function handler(req, res) {
       })
     });
 
-    const data = await r.json();
+    const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      return res.status(r.status).json({ error: data.error || JSON.stringify(data) });
+      return json(res, r.status, { error: data.error || data.message || "Retell API error", raw: data });
     }
-
-    // Devuelve solo lo necesario al frontend
-    res.status(200).json({ access_token: data.access_token, call_id: data.call_id });
+    return json(res, 200, { access_token: data.access_token, call_id: data.call_id });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return json(res, 500, { error: e.message || String(e) });
   }
 }
+
